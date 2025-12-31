@@ -17,7 +17,7 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <MantineProvider withGlobalStyles withNormalizeCSS>
-      <BrowserRouter>
+      <BrowserRouter basename="spotify-quiz">
         <AuthProvider>
           <SpotifyPlayerProvider>
             <QuizProvider>
