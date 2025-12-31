@@ -42,14 +42,18 @@ class SpotifyPlayerManager {
   }
 
   setToken(token?: string) {
-    if (this.token === token) return;
+    const sameToken = this.token === token;
     this.token = token;
-    this.teardown();
-    if (token) {
-      this.init();
-    } else {
-      this.setState({ isReady: false, deviceActive: false, deviceId: undefined });
+    if (!token) {
+      this.teardown();
+      this.setState({ isReady: false, deviceActive: false, deviceId: undefined, error: undefined });
+      return;
     }
+    if (sameToken && this.player && this.state.isReady) {
+      return;
+    }
+    this.teardown();
+    this.init();
   }
 
   private async init() {
@@ -85,7 +89,15 @@ class SpotifyPlayerManager {
         });
       });
 
-      await this.player.connect();
+      const connected = await this.player.connect();
+      if (!connected) {
+        this.setState({
+          isReady: false,
+          deviceActive: false,
+          error: "Spotify player could not connect yet. Make sure Spotify is open and try again."
+        });
+        return;
+      }
     } catch (error) {
       this.setState({ isReady: false, deviceActive: false, error: error instanceof Error ? error.message : "Failed to init Spotify player" });
     }
@@ -111,12 +123,26 @@ class SpotifyPlayerManager {
     this.subscribers.forEach((cb) => cb(this.state));
   }
 
+  private handleUnauthorized() {
+    this.setState({
+      isReady: false,
+      deviceActive: false,
+      error: "Spotify session expired. Please sign in again.",
+      currentTrackUri: undefined,
+      positionMs: undefined
+    });
+  }
+
   private async resolveDeviceId() {
     if (!this.token) return undefined;
     if (this.state.deviceId) return this.state.deviceId;
     const response = await fetch("https://api.spotify.com/v1/me/player/devices", {
       headers: { Authorization: `Bearer ${this.token}` }
     });
+    if (response.status === 401) {
+      this.handleUnauthorized();
+      return undefined;
+    }
     if (!response.ok) return undefined;
     const payload = (await response.json()) as { devices: Array<{ id: string; name: string }> };
     const found = payload.devices.find((device) => device.name === PLAYER_NAME);
@@ -142,6 +168,10 @@ class SpotifyPlayerManager {
       },
       body: JSON.stringify({ device_ids: [resolved], play: false })
     });
+    if (response.status === 401) {
+      this.handleUnauthorized();
+      return false;
+    }
     if (!response.ok) {
       const message =
         response.status === 404
@@ -204,6 +234,12 @@ class SpotifyPlayerManager {
       }
     }
 
+    if (response.status === 401) {
+      this.handleUnauthorized();
+      this.rangeRefClear();
+      return false;
+    }
+
     if (!response.ok) {
       const message =
         response.status === 404
@@ -226,12 +262,15 @@ class SpotifyPlayerManager {
 
   async pause() {
     if (!this.token || !this.state.deviceId) return;
-    await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${encodeURIComponent(this.state.deviceId)}`, {
+    const response = await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${encodeURIComponent(this.state.deviceId)}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${this.token}`
       }
     });
+    if (response.status === 401) {
+      this.handleUnauthorized();
+    }
     this.rangeRefClear();
   }
 

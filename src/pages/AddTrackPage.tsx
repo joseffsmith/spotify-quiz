@@ -147,7 +147,9 @@ export function AddTrackPage({ quiz, actions }: Props) {
     setSelectedTrackId(chosen.id);
     setSelectedMeta(chosen);
     setShowDropdown(false);
-    spotifyPlayer.playTrack(chosen.uri, { startMs: 0, endMs: chosen.duration_ms });
+    if (spotifyPlayer.isReady) {
+      spotifyPlayer.playTrack(chosen.uri, { startMs: 0, endMs: chosen.duration_ms });
+    }
     setSearchParams({ trackId: chosen.id });
   }
 
@@ -162,7 +164,9 @@ export function AddTrackPage({ quiz, actions }: Props) {
     setSelectedMeta(undefined);
     setStartMs(prevTrack.startMs);
     setEndMs(prevTrack.endMs);
-    spotifyPlayer.playTrack(prevTrack.uri, { startMs: prevTrack.startMs, endMs: prevTrack.endMs });
+    if (spotifyPlayer.isReady) {
+      spotifyPlayer.playTrack(prevTrack.uri, { startMs: prevTrack.startMs, endMs: prevTrack.endMs });
+    }
     setSearchParams({ trackId: prevTrack.id });
   }
 
@@ -178,7 +182,9 @@ export function AddTrackPage({ quiz, actions }: Props) {
         setSelectedMeta(undefined);
         setStartMs(nextTrack.startMs);
         setEndMs(nextTrack.endMs);
-        spotifyPlayer.playTrack(nextTrack.uri, { startMs: nextTrack.startMs, endMs: nextTrack.endMs });
+        if (spotifyPlayer.isReady) {
+          spotifyPlayer.playTrack(nextTrack.uri, { startMs: nextTrack.startMs, endMs: nextTrack.endMs });
+        }
         setSearchParams({ trackId: nextTrack.id });
         return;
       }
@@ -198,108 +204,173 @@ export function AddTrackPage({ quiz, actions }: Props) {
   }
 
   return (
-    <main style={{ padding: "1rem", maxWidth: 960, margin: "0 auto", fontFamily: "system-ui, sans-serif", position: "relative" }}>
-      <div style={{ marginBottom: "1rem", position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-          <button onClick={() => navigate(`/quiz/${quiz.id}`)} style={{ padding: "0.35rem 0.75rem" }}>
-            ← Back
+    <main
+      style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        padding: 0,
+        paddingBottom: "6rem",
+        fontFamily: "system-ui, sans-serif",
+        background: "#f7f8fb",
+        position: "fixed",
+        inset: 0,
+        zIndex: 10000
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 5,
+          padding: "1rem 1rem 0.75rem",
+          background: "linear-gradient(180deg, #f7f8fb 0%, #f7f8fb 70%, rgba(247,248,251,0.7) 100%)"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <button
+            onClick={() => navigate(`/quiz/${quiz.id}`)}
+            style={{
+              padding: "0.5rem 0.75rem",
+              borderRadius: 10,
+              border: "1px solid #dcdfe4",
+              background: "white",
+              fontWeight: 600
+            }}
+          >
+            ←
           </button>
-          <span style={{ fontWeight: 600 }}>{quiz.name}</span>
+          <div style={{ flex: 1, position: "relative" }}>
+            <input
+              value={state.query}
+              onFocus={() => setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+              onChange={(e) => setState((prev) => ({ ...prev, query: e.target.value }))}
+              placeholder="Search Spotify"
+              style={{
+                width: "100%",
+                padding: "0.85rem 0.9rem",
+                borderRadius: 12,
+                border: "1px solid #dcdfe4",
+                background: "white",
+                fontSize: 15
+              }}
+            />
+            {showDropdown && !state.loading && state.results.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "110%",
+                  left: 0,
+                  right: 0,
+                  zIndex: 10,
+                  background: "white",
+                  border: "1px solid #ddd",
+                  borderRadius: 12,
+                  marginTop: "0.35rem",
+                  maxHeight: "50vh",
+                  overflowY: "auto",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)"
+                }}
+              >
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {state.results.map((track, idx) => {
+                    const smallestImage = track.album.images[track.album.images.length - 1];
+                    return (
+                      <li
+                        key={track.id}
+                        style={{
+                          padding: "0.75rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          cursor: "pointer"
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelect(idx);
+                        }}
+                      >
+                        {smallestImage ? (
+                          <img
+                            src={smallestImage.url}
+                            alt=""
+                            width={48}
+                            height={48}
+                            style={{ borderRadius: 10, objectFit: "cover" }}
+                          />
+                        ) : (
+                          <div style={{ width: 48, height: 48, borderRadius: 10, background: "#f3f3f3" }} />
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {track.name}
+                          </div>
+                          <div style={{ fontSize: 13, color: "#555", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {track.artists.map((a) => a.name).join(", ")}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
-        <label style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-          <span style={{ fontWeight: 600 }}>Search Spotify</span>
-          <input
-            value={state.query}
-            onFocus={() => setShowDropdown(true)}
-            onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-            onChange={(e) => setState((prev) => ({ ...prev, query: e.target.value }))}
-            placeholder="Search songs or artists"
-            style={{ padding: "0.75rem", borderRadius: 8, border: "1px solid #ddd" }}
-          />
-        </label>
-        {state.loading && <p style={{ marginTop: "0.5rem" }}>Searching...</p>}
+        {state.loading && <p style={{ marginTop: "0.5rem", color: "#555" }}>Searching...</p>}
         {state.error && (
-          <p style={{ color: "crimson", marginTop: "0.5rem" }} role="alert">
+          <p style={{ color: "crimson", marginTop: "0.35rem" }} role="alert">
             {state.error}
           </p>
         )}
-        {showDropdown && !state.loading && state.results.length > 0 && (
-          <div
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              zIndex: 10,
-              background: "white",
-              border: "1px solid #ddd",
-              borderRadius: 10,
-              marginTop: "0.5rem",
-              maxHeight: 320,
-              overflowY: "auto",
-              boxShadow: "0 6px 18px rgba(0,0,0,0.12)"
-            }}
-          >
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {state.results.map((track, idx) => {
-                const smallestImage = track.album.images[track.album.images.length - 1];
-                const isSelected = idx === state.selectedIndex;
-                return (
-                  <li
-                    key={track.id}
-                    style={{
-                      padding: "0.5rem",
-                      background: isSelected ? "#f6f9ff" : "white",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      cursor: "pointer"
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleSelect(idx);
-                    }}
-                  >
-                    {smallestImage ? (
-                      <img
-                        src={smallestImage.url}
-                        alt=""
-                        width={48}
-                        height={48}
-                        style={{ borderRadius: 8, objectFit: "cover" }}
-                      />
-                    ) : (
-                      <div style={{ width: 48, height: 48, borderRadius: 8, background: "#f3f3f3" }} />
-                    )}
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{track.name}</div>
-                      <div style={{ fontSize: 13, color: "#555" }}>{track.artists.map((a) => a.name).join(", ")}</div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
       </div>
 
-      {selectedTrackId && (
-        <section style={{ display: "flex", flexDirection: "column", gap: "1rem", border: "1px solid #eee", borderRadius: 12, padding: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            {selectedTrackMeta?.album.images[0]?.url || inQuizTrack?.coverUrl ? (
-              <img
-                src={selectedTrackMeta?.album.images[0]?.url || inQuizTrack?.coverUrl}
-                alt=""
-                width={120}
-                height={120}
-                style={{ borderRadius: 12, objectFit: "cover" }}
-              />
-            ) : (
-              <div style={{ width: 120, height: 120, borderRadius: 12, background: "#f3f3f3" }} />
-            )}
-            <div>
-              <div style={{ fontSize: 14, color: "#555" }}>Previewing</div>
-              <div style={{ fontWeight: 700, fontSize: 18 }}>{selectedTrackMeta?.name || inQuizTrack?.name}</div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "0.5rem 1rem 1rem" }}>
+        {!selectedTrackId && (
+          <div style={{ color: "#666", fontSize: 15, textAlign: "center", paddingTop: "2rem" }}>
+            Search for a song to start building your round.
+          </div>
+        )}
+
+        {selectedTrackId && (
+          <section
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "1rem",
+              flex: 1
+            }}
+          >
+            <div
+              style={{
+                width: "min(80vw, 360px)",
+                aspectRatio: "1 / 1",
+                maxWidth: 420,
+                background: "#eceff4",
+                borderRadius: 20,
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 12px 28px rgba(0,0,0,0.12)"
+              }}
+            >
+              {selectedTrackMeta?.album.images[0]?.url || inQuizTrack?.coverUrl ? (
+                <img
+                  src={selectedTrackMeta?.album.images[0]?.url || inQuizTrack?.coverUrl}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <div style={{ width: "100%", height: "100%", background: "#f3f3f3" }} />
+              )}
+            </div>
+
+            <div style={{ textAlign: "center", padding: "0 0.5rem" }}>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{selectedTrackMeta?.name || inQuizTrack?.name}</div>
               <div style={{ fontSize: 14, color: "#555" }}>
                 {selectedTrackMeta
                   ? selectedTrackMeta.artists.map((a) => a.name).join(", ")
@@ -307,51 +378,92 @@ export function AddTrackPage({ quiz, actions }: Props) {
                   ? inQuizTrack.artists
                   : ""}
               </div>
-              <div style={{ fontSize: 12, color: "#777" }}>
-                Duration {formatMs(selectedTrackMeta?.duration_ms || inQuizTrack?.durationMs || 0)}
+              <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>
+                {formatMs(selectedTrackMeta?.duration_ms || inQuizTrack?.durationMs || 0)}
               </div>
             </div>
-          </div>
 
-          <RangeSlider
-            min={0}
-            max={selectedTrackMeta?.duration_ms || inQuizTrack?.durationMs || 0}
-            step={500}
-            value={[startMs, endMs]}
-            onChange={([start, end]) => {
-              const duration = selectedTrackMeta?.duration_ms || inQuizTrack?.durationMs || 0;
-              const safeStart = Math.max(0, Math.min(start, duration));
-              const safeEnd = Math.max(safeStart + 500, Math.min(end, duration));
-              setStartMs(safeStart);
-              setEndMs(safeEnd);
-            }}
-            onChangeEnd={([start, end]) => {
-              if (selectedTrackId) {
-                actions.updateTrackRange(quiz.id, selectedTrackId, start, end);
-                spotifyPlayer.playTrack(selectedTrackMeta?.uri || inQuizTrack?.uri || "", { startMs: start, endMs: end });
-              }
-            }}
-            label={(value) => formatMs(value)}
-          />
-
-          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "space-between" }}>
-            <button onClick={handlePrevResult} disabled={!quiz.tracks.length}>
-              Prev song
-            </button>
-            <button onClick={handlePause}>Pause</button>
-            <button onClick={handleAdd} disabled={!spotifyPlayer.isReady}>
-              {selectedTrackId && quiz.tracks.sort((a, b) => a.order - b.order).findIndex((t) => t.id === selectedTrackId) < quiz.tracks.length - 1
-                ? "Next song"
-                : "Add track"}
-            </button>
-          </div>
-          {spotifyPlayer.error && (
-            <div style={{ color: "crimson", fontSize: 13 }} role="alert">
-              {spotifyPlayer.error}
+            <div style={{ width: "100%", maxWidth: 540, padding: "0 0.5rem" }}>
+              <RangeSlider
+                min={0}
+                max={selectedTrackMeta?.duration_ms || inQuizTrack?.durationMs || 0}
+                step={500}
+                value={[startMs, endMs]}
+                onChange={([start, end]) => {
+                  const duration = selectedTrackMeta?.duration_ms || inQuizTrack?.durationMs || 0;
+                  const safeStart = Math.max(0, Math.min(start, duration));
+                  const safeEnd = Math.max(safeStart + 500, Math.min(end, duration));
+                  setStartMs(safeStart);
+                  setEndMs(safeEnd);
+                }}
+                onChangeEnd={([start, end]) => {
+                  if (selectedTrackId) {
+                    actions.updateTrackRange(quiz.id, selectedTrackId, start, end);
+                    if (spotifyPlayer.isReady) {
+                      spotifyPlayer.playTrack(selectedTrackMeta?.uri || inQuizTrack?.uri || "", { startMs: start, endMs: end });
+                    }
+                  }
+                }}
+                label={(value) => formatMs(value)}
+              />
             </div>
-          )}
-        </section>
-      )}
+
+            {!spotifyPlayer.isReady && !spotifyPlayer.error && (
+              <div style={{ color: "#555", fontSize: 13 }}>Connecting to Spotify player...</div>
+            )}
+            {spotifyPlayer.error && (
+              <div style={{ color: "crimson", fontSize: 13 }} role="alert">
+                {spotifyPlayer.error}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+
+      <div
+        style={{
+          position: "sticky",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: "0.75rem 1rem 1.25rem",
+          marginTop: "auto",
+          background: "linear-gradient(0deg, #f7f8fb 0%, rgba(247,248,251,0.92) 70%, rgba(247,248,251,0) 100%)"
+        }}
+      >
+        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "space-between" }}>
+          <button
+            onClick={handlePrevResult}
+            disabled={!quiz.tracks.length}
+            style={{ flex: 1, padding: "0.85rem", borderRadius: 12, border: "1px solid #dcdfe4", background: "white", fontWeight: 700 }}
+          >
+            Prev song
+          </button>
+          <button
+            onClick={handlePause}
+            style={{ flex: 1, padding: "0.85rem", borderRadius: 12, border: "1px solid #dcdfe4", background: "white", fontWeight: 700 }}
+          >
+            Pause
+          </button>
+          <button
+            onClick={handleAdd}
+            disabled={!spotifyPlayer.isReady}
+            style={{
+              flex: 1,
+              padding: "0.85rem",
+              borderRadius: 12,
+              border: "none",
+              background: "#121212",
+              color: "white",
+              fontWeight: 800
+            }}
+          >
+            {selectedTrackId && quiz.tracks.sort((a, b) => a.order - b.order).findIndex((t) => t.id === selectedTrackId) < quiz.tracks.length - 1
+              ? "Next song"
+              : "Add track"}
+          </button>
+        </div>
+      </div>
     </main>
   );
 }
